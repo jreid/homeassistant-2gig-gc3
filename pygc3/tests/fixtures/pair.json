@@ -1,0 +1,7 @@
+{
+  "PairingKey": "000000",
+  "deviceName": "TEST Controller",
+  "allPartitionAccess": true,
+  "isSecurityDevice": false,
+  "memberOfPartition": "1"
+}

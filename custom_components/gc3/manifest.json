@@ -1,0 +1,14 @@
+{
+  "domain": "gc3",
+  "name": "2GIG GC3",
+  "codeowners": ["@jreid"],
+  "config_flow": true,
+  "documentation": "https://github.com/jreid/homeassistant-2gig-gc3",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/jreid/homeassistant-2gig-gc3/issues",
+  "loggers": ["pygc3"],
+  "quality_scale": "bronze",
+  "requirements": ["pygc3==0.1.0"],
+  "version": "0.1.0"
+}

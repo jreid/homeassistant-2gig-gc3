@@ -1,0 +1,30 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# tooling
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# editors / agents
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# secrets / local
+# The panel's X-Api-Key and X-Pairing-Key authenticate anyone on the LAN to
+# arm and disarm the alarm. They must never reach a commit.
+.env
+*.bak
+*.bak-*
+caps/
+*.flows

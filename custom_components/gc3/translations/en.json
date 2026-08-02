@@ -1,0 +1,100 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "2GIG GC3 panel",
+        "description": "Enter the panel's address and the API credentials (captured from a paired controller — see the docs).",
+        "data": {
+          "host": "Host",
+          "api_key": "API key",
+          "pairing_key": "Pairing key",
+          "disarm_pin": "Disarm PIN",
+          "port": "Port",
+          "partition": "Partition"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the panel.",
+          "api_key": "The X-Api-Key issued to a paired controller.",
+          "pairing_key": "The 6-digit X-Pairing-Key.",
+          "disarm_pin": "User PIN used to disarm (leave blank to be prompted for a code each time).",
+          "port": "The panel's API port. Almost always 3000.",
+          "partition": "Panel partition to control (usually 1)."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure the GC3 panel",
+        "description": "Update the panel's address, credentials or disarm PIN.",
+        "data": {
+          "host": "Host",
+          "api_key": "API key",
+          "pairing_key": "Pairing key",
+          "disarm_pin": "Disarm PIN",
+          "port": "Port",
+          "partition": "Partition"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the panel.",
+          "api_key": "The X-Api-Key issued to a paired controller.",
+          "pairing_key": "The 6-digit X-Pairing-Key.",
+          "disarm_pin": "User PIN used to disarm (leave blank to be prompted for a code each time).",
+          "port": "The panel's API port. Almost always 3000.",
+          "partition": "Panel partition to control (usually 1)."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate GC3",
+        "description": "The panel rejected the stored credentials. Enter current values.",
+        "data": {
+          "api_key": "API key",
+          "pairing_key": "Pairing key"
+        },
+        "data_description": {
+          "api_key": "The X-Api-Key issued to a paired controller.",
+          "pairing_key": "The 6-digit X-Pairing-Key."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the panel.",
+      "invalid_auth": "The panel rejected the API/pairing key.",
+      "unknown": "Unexpected error talking to the panel."
+    },
+    "abort": {
+      "already_configured": "This panel is already configured.",
+      "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Re-configuration was successful.",
+      "wrong_panel": "The address entered belongs to a different panel than the one being reconfigured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GC3 options",
+        "data": {
+          "poll_interval": "Poll interval (seconds)",
+          "no_exit_delay": "Arm with no exit delay",
+          "bypass_not_ready": "Bypass open zones when arming"
+        },
+        "data_description": {
+          "poll_interval": "How often to read the panel's status and zones. The panel is local; 3 seconds is fine.",
+          "no_exit_delay": "Arm instantly instead of counting down the exit delay.",
+          "bypass_not_ready": "Arm even when zones are open, bypassing them, instead of failing."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "command_failed": {
+      "message": "The GC3 panel rejected the command: {error}"
+    },
+    "no_disarm_pin": {
+      "message": "No disarm PIN was provided. Enter a PIN in the dialog, or store one in the integration's settings."
+    }
+  },
+  "issues": {
+    "zone_supervision_lost": {
+      "title": "Zone \"{zone}\" is no longer reporting",
+      "description": "The panel has lost supervision of the sensor for \"{zone}\". It is usually a dead battery, a sensor that has been removed, or one that is out of range. The zone's state in Home Assistant is stale until the panel hears from it again."
+    }
+  }
+}

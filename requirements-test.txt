@@ -1,0 +1,6 @@
+# Test/lint tooling for the custom_components/gc3 integration.
+# pytest-homeassistant-custom-component pins the Home Assistant version it
+# tests against, so it is the single source of truth for the HA we build on.
+pytest-homeassistant-custom-component==0.13.351
+mypy==2.3.0
+ruff==0.16.1

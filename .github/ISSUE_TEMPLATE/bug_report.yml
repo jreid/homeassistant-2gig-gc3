@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in the integration or pygc3 does not work
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: download **Diagnostics** from the integration's page
+        (Settings → Devices & Services → 2GIG GC3 → ⋮ → Download diagnostics).
+        Credentials, the panel host and sensor serials are already redacted.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.8.0"
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      description: From the integration page, or the `version` in manifest.json.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: panel-firmware
+    attributes:
+      label: Panel firmware
+      description: If you know it — the API surface differs between firmwares.
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics / logs
+      description: |
+        Paste the diagnostics download and any `custom_components.gc3` or
+        `pygc3` log lines. Enable debug logging first if you can.
+      render: shell

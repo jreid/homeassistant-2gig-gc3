@@ -1,0 +1,67 @@
+[build-system]
+# >=77 for PEP 639 SPDX license metadata (license = "MIT" + license-files).
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygc3"
+version = "0.1.0"
+description = "Async client for the 2GIG GC3 panel local automation API"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Jamie Reid", email = "james.r.reid@gmail.com" }]
+keywords = ["2gig", "gc3", "alarm", "security-panel", "home-assistant"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Home Automation",
+    "Typing :: Typed",
+]
+dependencies = ["aiohttp>=3.9"]
+
+[project.urls]
+Homepage = "https://github.com/jreid/homeassistant-2gig-gc3/tree/main/pygc3"
+Repository = "https://github.com/jreid/homeassistant-2gig-gc3"
+Issues = "https://github.com/jreid/homeassistant-2gig-gc3/issues"
+Changelog = "https://github.com/jreid/homeassistant-2gig-gc3/blob/main/pygc3/CHANGELOG.md"
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.23", "pytest-cov>=5"]
+dev = ["mypy>=1.11", "ruff>=0.6", "build>=1.2", "twine>=5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pygc3 = ["py.typed"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["pygc3"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:"]
+fail_under = 95
+show_missing = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.mypy]
+strict = true
+packages = ["pygc3"]

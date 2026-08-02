@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest something the integration or pygc3 should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The panel's API surface is small and well mapped in
+        [INTEGRATION_PLAN.md](../blob/main/INTEGRATION_PLAN.md) §1 — worth a
+        look before asking for something the panel may simply not expose.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you have tried or considered instead?

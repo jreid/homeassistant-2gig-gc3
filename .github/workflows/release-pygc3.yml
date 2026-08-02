@@ -1,0 +1,45 @@
+name: Publish pygc3
+
+on:
+  push:
+    tags: ["pygc3-v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: pip install build twine
+      - name: Build and check
+        working-directory: pygc3
+        run: |
+          python -m build
+          twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pygc3-dist
+          path: pygc3/dist/*
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pygc3
+    permissions:
+      # Trusted publishing: no API token stored in the repo. Configure the
+      # publisher on PyPI for jreid/homeassistant-2gig-gc3 + this workflow file
+      # before the first release.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pygc3-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,115 @@
+rules:
+  # --- Bronze -------------------------------------------------------------
+  action-setup:
+    status: exempt
+    comment: |
+      No custom actions. Arm/disarm are the standard alarm_control_panel
+      services, registered by that platform.
+  appropriate-polling: done
+  brands:
+    status: todo
+    comment: Logo/icon still to be submitted to home-assistant/brands.
+  common-modules: done
+  config-flow-test-coverage: done
+  config-flow: done
+  dependency-transparency:
+    status: done
+    comment: |
+      pygc3 is pinned in manifest requirements, built from source in this repo
+      and published to PyPI from a tagged commit.
+  docs-actions:
+    status: exempt
+    comment: See action-setup; the standard alarm services need no extra docs.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup:
+    status: exempt
+    comment: |
+      Polling only. The panel's SSE endpoint serves one subscriber and is taken
+      by the SC100 controller (INTEGRATION_PLAN.md §1); there is nothing to
+      subscribe to.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry:
+    status: done
+    comment: |
+      Keyed on host. GET /status returns only armState and isArmedStay -- the
+      panel exposes no serial or other identity to key on (§1).
+
+  # --- Silver -------------------------------------------------------------
+  action-exceptions: done
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable:
+    status: done
+    comment: |
+      Handled by DataUpdateCoordinator, which logs the failure once and the
+      recovery once. Relevant here because the panel refuses API connections for
+      roughly a minute after it reboots.
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage: done
+
+  # --- Gold ---------------------------------------------------------------
+  devices: done
+  diagnostics: done
+  discovery:
+    status: todo
+    comment: |
+      Not yet established whether the GC3 advertises over mDNS. Panel addresses
+      are static in practice, so this is a convenience, not a blocker.
+  discovery-update-info:
+    status: todo
+    comment: Blocked on the discovery investigation above.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: done
+    comment: |
+      Zones added on the panel appear on the next poll. They are entities on the
+      single panel device rather than devices of their own.
+  entity-category:
+    status: exempt
+    comment: |
+      Every entity is a primary sensor or the panel itself; none is diagnostic
+      or configuration.
+  entity-device-class: done
+  entity-disabled-by-default:
+    status: done
+    comment: Keyfob/pendant zones are created disabled.
+  entity-translations:
+    status: exempt
+    comment: |
+      Zone names come from the panel's voiceDescriptor, which the user sets on
+      the panel in their own language; there is nothing to translate. The alarm
+      entity takes the device name.
+  exception-translations: done
+  icon-translations:
+    status: exempt
+    comment: Icons follow from device_class on every entity.
+  reconfiguration-flow: done
+  repair-issues:
+    status: done
+    comment: Raised when a zone stays in lossOfSupervision.
+  stale-devices:
+    status: done
+    comment: |
+      Zones removed on the panel have their entities removed from the registry
+      on the next poll. The panel device itself is removed with the config entry.
+
+  # --- Platinum -----------------------------------------------------------
+  async-dependency: done
+  inject-websession: done
+  strict-typing: done

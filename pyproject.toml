@@ -1,0 +1,35 @@
+# Tooling config for the Home Assistant integration in this repo.
+# The pygc3 library is a separate distribution with its own pygc3/pyproject.toml.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+norecursedirs = ["pygc3"]
+
+[tool.coverage.run]
+source = ["custom_components/gc3"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+fail_under = 95
+show_missing = true
+
+[tool.ruff]
+# Home Assistant 2026.8 requires Python >= 3.14.2.
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components", "pygc3", "tests"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unused_configs = true
+# Home Assistant's component packages re-export their constants without __all__,
+# and core integrations import them from the package root. Following that
+# convention costs us this one strict sub-flag.
+no_implicit_reexport = false
