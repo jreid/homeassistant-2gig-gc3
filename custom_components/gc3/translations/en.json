@@ -73,11 +73,15 @@
         "data": {
           "poll_interval": "Poll interval (seconds)",
           "no_exit_delay": "Arm with no exit delay",
+          "no_entry_delay": "No entry delay when armed home or away",
+          "night_no_entry_delay": "No entry delay when armed night",
           "bypass_not_ready": "Bypass open zones when arming"
         },
         "data_description": {
           "poll_interval": "How often to read the panel's status and zones. The panel is local; 3 seconds is fine.",
           "no_exit_delay": "Arm instantly instead of counting down the exit delay.",
+          "no_entry_delay": "Sound the alarm the moment an entry zone opens, instead of allowing time to disarm. Leave this off unless you disarm some other way, or walking in your own front door will trip the siren.",
+          "night_no_entry_delay": "The same, for night mode only. Instant is the conventional meaning of arming night, but the siren sounds with no chance to disarm first.",
           "bypass_not_ready": "Arm even when zones are open, bypassing them, instead of failing."
         }
       }

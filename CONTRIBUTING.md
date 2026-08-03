@@ -14,7 +14,7 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-test.txt
 pip install ./pygc3
 
-pytest --cov=custom_components/gc3   # 69 tests, ≥95% enforced
+pytest --cov=custom_components/gc3   # 74 tests, ≥95% enforced
 mypy custom_components/gc3           # strict
 ruff check custom_components tests
 ruff format --check custom_components tests

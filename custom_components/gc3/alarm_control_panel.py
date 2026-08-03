@@ -17,7 +17,14 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from pygc3 import GC3Error
 
-from .const import CONF_BYPASS_NOT_READY, CONF_DISARM_PIN, CONF_NO_EXIT_DELAY, DOMAIN
+from .const import (
+    CONF_BYPASS_NOT_READY,
+    CONF_DISARM_PIN,
+    CONF_NIGHT_NO_ENTRY_DELAY,
+    CONF_NO_ENTRY_DELAY,
+    CONF_NO_EXIT_DELAY,
+    DOMAIN,
+)
 from .coordinator import GC3ConfigEntry, GC3Coordinator
 from .entity import GC3Entity
 
@@ -58,10 +65,16 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
     def alarm_state(self) -> AlarmControlPanelState | None:
         return self.coordinator.alarm_state
 
-    @property
-    def _arm_options(self) -> dict[str, bool]:
+    def _arm_options(self, entry_delay_option: str) -> dict[str, bool]:
+        """Panel flags for an arm command, with entry delay per arm mode.
+
+        `night` here is pygc3's name for the panel's `noEntryDelay` flag, not
+        the armed_night label -- the two are unrelated, which is exactly why
+        entry delay is now its own option (see below).
+        """
         options = self.coordinator.config_entry.options
         return {
+            "night": options.get(entry_delay_option, False),
             "no_exit_delay": options.get(CONF_NO_EXIT_DELAY, False),
             "bypass_not_ready": options.get(CONF_BYPASS_NOT_READY, False),
         }
@@ -95,20 +108,33 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
         await self._command(
-            lambda: self.coordinator.client.arm(stay=True, **self._arm_options),
+            lambda: self.coordinator.client.arm(
+                stay=True, **self._arm_options(CONF_NO_ENTRY_DELAY)
+            ),
             night=False,
         )
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         await self._command(
-            lambda: self.coordinator.client.arm(stay=False, **self._arm_options),
+            lambda: self.coordinator.client.arm(
+                stay=False, **self._arm_options(CONF_NO_ENTRY_DELAY)
+            ),
             night=False,
         )
 
     async def async_alarm_arm_night(self, code: str | None = None) -> None:
+        # Night takes its own entry-delay option. Arming instant is the
+        # conventional meaning of night mode, but it is off by default because
+        # it once was not: passing noEntryDelay unconditionally made night alarm
+        # the instant an entry zone opened, which is a surprise nobody wants
+        # from a live siren. Opt in via CONF_NIGHT_NO_ENTRY_DELAY.
+        #
+        # The night=True argument below is the Home Assistant-side label, which
+        # the coordinator remembers because the panel cannot report it back. It
+        # is not the panel flag of the same name -- see _arm_options.
         await self._command(
             lambda: self.coordinator.client.arm(
-                stay=True, night=True, **self._arm_options
+                stay=True, **self._arm_options(CONF_NIGHT_NO_ENTRY_DELAY)
             ),
             night=True,
         )

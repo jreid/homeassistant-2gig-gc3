@@ -24,7 +24,7 @@ a repair issue when a sensor stops checking in.
 |---|---|
 | `custom_components/gc3/` | The Home Assistant integration |
 | `pygc3/` | Standalone async client library for the panel API — published to PyPI as [`pygc3`](https://pypi.org/project/pygc3/) |
-| `tests/` | Integration test suite (69 tests, ≥95% coverage enforced) |
+| `tests/` | Integration test suite (74 tests, ≥95% coverage enforced) |
 | `tools/` | `pair.py` credential diagnostics; `pairexp.py` / `pairnew.py` are the recorded dead-end pairing experiments |
 | `INTEGRATION_PLAN.md` | The panel-API investigation, credential findings, and quality-scale roadmap |
 
@@ -94,7 +94,16 @@ Under **Configure** on the integration afterwards:
 |---|---|---|
 | Poll interval | 3 s | 1–60. The panel is local and cheap to poll |
 | Arm with no exit delay | off | Arms instantly instead of counting down |
+| No entry delay when armed home or away | off | Siren the moment an entry zone opens, with no time to disarm |
+| No entry delay when armed night | off | The same, night only — the conventional meaning of arming night |
 | Bypass open zones when arming | off | Arms past open zones instead of failing |
+
+Entry delay is split per arm mode because one switch can't serve both: arming
+home or away instant means tripping your own siren walking in the front door,
+while instant *is* what night mode traditionally means. Both default off, so
+the panel's own programmed delay runs unless you say otherwise. The delay's
+**length** is not settable here — the panel's API exposes only an on/off flag,
+so change the duration on the panel itself.
 
 Host, port and PIN can be changed later with **Reconfigure**; if the panel
 rejects the keys, HA raises a reauthentication prompt.

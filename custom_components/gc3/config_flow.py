@@ -21,6 +21,8 @@ from pygc3 import GC3AuthError, GC3Client, GC3ConnectionError, GC3Error
 from .const import (
     CONF_BYPASS_NOT_READY,
     CONF_DISARM_PIN,
+    CONF_NIGHT_NO_ENTRY_DELAY,
+    CONF_NO_ENTRY_DELAY,
     CONF_NO_EXIT_DELAY,
     CONF_PAIRING_KEY,
     CONF_PARTITION,
@@ -171,6 +173,14 @@ class GC3OptionsFlow(OptionsFlow):
                     vol.Optional(
                         CONF_NO_EXIT_DELAY,
                         default=options.get(CONF_NO_EXIT_DELAY, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_NO_ENTRY_DELAY,
+                        default=options.get(CONF_NO_ENTRY_DELAY, False),
+                    ): bool,
+                    vol.Optional(
+                        CONF_NIGHT_NO_ENTRY_DELAY,
+                        default=options.get(CONF_NIGHT_NO_ENTRY_DELAY, False),
                     ): bool,
                     vol.Optional(
                         CONF_BYPASS_NOT_READY,

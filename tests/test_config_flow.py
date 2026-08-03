@@ -13,6 +13,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.gc3.const import (
     CONF_BYPASS_NOT_READY,
+    CONF_NIGHT_NO_ENTRY_DELAY,
+    CONF_NO_ENTRY_DELAY,
     CONF_NO_EXIT_DELAY,
     CONF_PAIRING_KEY,
     CONF_POLL_INTERVAL,
@@ -192,6 +194,8 @@ async def test_options_flow(
         {
             CONF_POLL_INTERVAL: 15,
             CONF_NO_EXIT_DELAY: True,
+            CONF_NO_ENTRY_DELAY: True,
+            CONF_NIGHT_NO_ENTRY_DELAY: True,
             CONF_BYPASS_NOT_READY: True,
         },
     )
@@ -199,6 +203,8 @@ async def test_options_flow(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert config_entry.options[CONF_POLL_INTERVAL] == 15
+    assert config_entry.options[CONF_NO_ENTRY_DELAY] is True
+    assert config_entry.options[CONF_NIGHT_NO_ENTRY_DELAY] is True
     coordinator = config_entry.runtime_data
     assert coordinator.update_interval.total_seconds() == 15
 

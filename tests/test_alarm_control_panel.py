@@ -32,6 +32,8 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.gc3.const import (
     CONF_BYPASS_NOT_READY,
     CONF_DISARM_PIN,
+    CONF_NIGHT_NO_ENTRY_DELAY,
+    CONF_NO_ENTRY_DELAY,
     CONF_NO_EXIT_DELAY,
 )
 from pygc3 import GC3ConnectionError, GC3ResponseError
@@ -78,7 +80,7 @@ async def test_entity_shape(
     [
         (SERVICE_ALARM_ARM_HOME, {"stay": True}),
         (SERVICE_ALARM_ARM_AWAY, {"stay": False}),
-        (SERVICE_ALARM_ARM_NIGHT, {"stay": True, "night": True}),
+        (SERVICE_ALARM_ARM_NIGHT, {"stay": True}),
     ],
 )
 async def test_arm_services(
@@ -88,14 +90,36 @@ async def test_arm_services(
     service: str,
     expected: dict,
 ) -> None:
-    """Each arm service maps to the right pygc3 call."""
+    """Each arm service maps to the right pygc3 call, with delays left alone."""
     await _setup(hass, config_entry)
     await _call(hass, service)
 
     kwargs = mock_client.arm.await_args.kwargs
     assert {k: kwargs[k] for k in expected} == expected
     assert kwargs["no_exit_delay"] is False
+    assert kwargs["night"] is False
     assert kwargs["bypass_not_ready"] is False
+
+
+async def test_arm_keeps_entry_delay_by_default(
+    hass: HomeAssistant, mock_client: AsyncMock, config_entry: MockConfigEntry
+) -> None:
+    """No arm mode suppresses the panel's entry delay unless asked to.
+
+    pygc3 maps its `night=` kwarg onto the panel's `noEntryDelay` flag, so
+    forwarding it unconditionally made an opened entry zone alarm instantly
+    instead of starting the countdown. That is now opt-in per arm mode, and
+    both options default off, so an unconfigured entry behaves as before.
+    """
+    await _setup(hass, config_entry)
+
+    for service in (
+        SERVICE_ALARM_ARM_HOME,
+        SERVICE_ALARM_ARM_AWAY,
+        SERVICE_ALARM_ARM_NIGHT,
+    ):
+        await _call(hass, service)
+        assert mock_client.arm.await_args.kwargs["night"] is False, service
 
 
 async def test_arm_night_is_remembered(
@@ -148,6 +172,79 @@ async def test_arm_uses_configured_options(
     kwargs = mock_client.arm.await_args.kwargs
     assert kwargs["no_exit_delay"] is True
     assert kwargs["bypass_not_ready"] is True
+
+
+@pytest.mark.parametrize(
+    ("options", "expected"),
+    [
+        # Each option reaches its own arm modes and no others. Getting this
+        # wrong means either a siren on the way in or no instant night arm.
+        (
+            {CONF_NO_ENTRY_DELAY: True},
+            {
+                SERVICE_ALARM_ARM_HOME: True,
+                SERVICE_ALARM_ARM_AWAY: True,
+                SERVICE_ALARM_ARM_NIGHT: False,
+            },
+        ),
+        (
+            {CONF_NIGHT_NO_ENTRY_DELAY: True},
+            {
+                SERVICE_ALARM_ARM_HOME: False,
+                SERVICE_ALARM_ARM_AWAY: False,
+                SERVICE_ALARM_ARM_NIGHT: True,
+            },
+        ),
+        (
+            {CONF_NO_ENTRY_DELAY: True, CONF_NIGHT_NO_ENTRY_DELAY: True},
+            {
+                SERVICE_ALARM_ARM_HOME: True,
+                SERVICE_ALARM_ARM_AWAY: True,
+                SERVICE_ALARM_ARM_NIGHT: True,
+            },
+        ),
+    ],
+)
+async def test_entry_delay_options_are_per_arm_mode(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    options: dict,
+    expected: dict,
+) -> None:
+    """Home/away and night carry independent entry-delay options."""
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(config_entry, options=options)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    for service, no_entry_delay in expected.items():
+        await _call(hass, service)
+        assert mock_client.arm.await_args.kwargs["night"] is no_entry_delay, service
+
+
+async def test_night_entry_delay_does_not_change_the_night_label(
+    hass: HomeAssistant, mock_client: AsyncMock, config_entry: MockConfigEntry
+) -> None:
+    """The panel flag and the HA-side armed_night label are unrelated.
+
+    They collide on the name `night` in pygc3's signature, so a mix-up would be
+    easy and silent: arming night would report armed_home, or arming home would
+    report armed_night.
+    """
+    config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        config_entry, options={CONF_NIGHT_NO_ENTRY_DELAY: True}
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    set_status(mock_client, STATUS_ARMED_STAY)
+
+    await _call(hass, SERVICE_ALARM_ARM_NIGHT)
+    await hass.async_block_till_done()
+
+    assert mock_client.arm.await_args.kwargs["night"] is True
+    assert hass.states.get(ENTITY_ID).state == AlarmControlPanelState.ARMED_NIGHT
 
 
 async def test_disarm_uses_stored_pin(
