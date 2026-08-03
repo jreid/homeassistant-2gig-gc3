@@ -1,16 +1,21 @@
-"""Binary sensor platform for GC3 zones."""
+"""Binary sensor platform for GC3 zones and panel-wide health."""
 
 from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
+    BinarySensorEntityDescription,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from pygc3 import Zone
+from pygc3 import Zone, ZoneStatus
 
 from .coordinator import GC3ConfigEntry, GC3Coordinator
 from .entity import GC3Entity
@@ -22,6 +27,17 @@ PARALLEL_UPDATES = 0
 # Zones whose descriptor matches these are real devices but not openings: they
 # are noisy, momentary, and rarely wanted on a dashboard.
 _TRANSIENT_KEYWORDS = ("keyfob", "key fob", "fob", "pendant")
+
+# What counts as "the house is open" for the open-zone count: an opening someone
+# can walk through, not a motion, smoke or flood detector.
+OPENING_DEVICE_CLASSES = frozenset(
+    {
+        BinarySensorDeviceClass.DOOR,
+        BinarySensorDeviceClass.WINDOW,
+        BinarySensorDeviceClass.GARAGE_DOOR,
+        BinarySensorDeviceClass.OPENING,
+    }
+)
 
 
 def zone_device_class(name: str) -> BinarySensorDeviceClass | None:
@@ -61,6 +77,52 @@ def is_transient_zone(name: str) -> bool:
     return any(k in name.lower() for k in _TRANSIENT_KEYWORDS)
 
 
+def is_opening_zone(name: str) -> bool:
+    """True for zones that represent a way into the house."""
+    return zone_device_class(name) in OPENING_DEVICE_CLASSES
+
+
+@dataclass(frozen=True, kw_only=True)
+class GC3HealthDescription(BinarySensorEntityDescription):
+    """A panel-wide roll-up of one zone status flag."""
+
+    flag: Callable[[ZoneStatus], bool]
+
+
+# One entity per fault the panel can report against a sensor. Each is on when
+# any zone raises the flag, and lists the offending zones in `zones` -- which is
+# the part that makes a notification actionable.
+HEALTH_SENSORS: tuple[GC3HealthDescription, ...] = (
+    GC3HealthDescription(
+        key="battery_low",
+        translation_key="battery_low",
+        device_class=BinarySensorDeviceClass.BATTERY,
+        flag=lambda status: status.battery_low,
+    ),
+    GC3HealthDescription(
+        key="tamper",
+        translation_key="tamper",
+        device_class=BinarySensorDeviceClass.TAMPER,
+        flag=lambda status: status.tampered,
+    ),
+    # A supervised sensor that stops checking in is indistinguishable from one
+    # that has been removed or jammed -- worth surfacing apart from a low battery.
+    GC3HealthDescription(
+        key="supervision_lost",
+        translation_key="supervision_lost",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        flag=lambda status: status.loss_of_supervision,
+    ),
+    # Bypassed zones are armed-but-ignored. Easy to leave set by accident.
+    GC3HealthDescription(
+        key="zones_bypassed",
+        translation_key="zones_bypassed",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        flag=lambda status: status.bypassed,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: GC3ConfigEntry,
@@ -69,6 +131,10 @@ async def async_setup_entry(
     """Set up zone sensors, and keep them in sync as the panel's zones change."""
     coordinator = entry.runtime_data
     known: set[str] = set()
+
+    async_add_entities(
+        GC3HealthSensor(coordinator, description) for description in HEALTH_SENSORS
+    )
 
     @callback
     def _sync_zones() -> None:
@@ -152,3 +218,39 @@ class GC3ZoneSensor(GC3Entity, BinarySensorEntity):
             "loss_of_supervision": status.loss_of_supervision,
             "connection": zone.connection_type,
         }
+
+
+class GC3HealthSensor(GC3Entity, BinarySensorEntity):
+    """Panel-wide health: on when any zone raises the described flag."""
+
+    entity_description: GC3HealthDescription
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self, coordinator: GC3Coordinator, description: GC3HealthDescription
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        entry_id = coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{entry_id}_{description.key}"
+
+    @property
+    def _affected_zones(self) -> list[str]:
+        """Names of the zones currently raising this flag, in panel order."""
+        if self.coordinator.data is None:
+            return []
+        return [
+            zone.name
+            for zone in self.coordinator.data.zones
+            if self.entity_description.flag(zone.status)
+        ]
+
+    @property
+    def is_on(self) -> bool | None:
+        if self.coordinator.data is None:
+            return None
+        return bool(self._affected_zones)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {"zones": self._affected_zones}

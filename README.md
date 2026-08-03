@@ -8,6 +8,8 @@ No cloud account, no vendor bridge, no polling anything outside your LAN.
 |---|---|
 | `alarm_control_panel` | arm home / away / night, disarm |
 | `binary_sensor` (one per zone) | open/closed, with battery / tamper / bypass / supervision attributes |
+| `binary_sensor` (four, diagnostic) | panel health: battery low, tamper, supervision lost, zones bypassed — each naming the offending zones |
+| `sensor` | open-zone count, naming the zones that would block an arm |
 
 Everything lives on one device in HA, with diagnostics, reauth, reconfigure and
 a repair issue when a sensor stops checking in.
@@ -22,7 +24,7 @@ a repair issue when a sensor stops checking in.
 |---|---|
 | `custom_components/gc3/` | The Home Assistant integration |
 | `pygc3/` | Standalone async client library for the panel API — published to PyPI as [`pygc3`](https://pypi.org/project/pygc3/) |
-| `tests/` | Integration test suite (58 tests, ≥95% coverage enforced) |
+| `tests/` | Integration test suite (69 tests, ≥95% coverage enforced) |
 | `tools/` | `pair.py` credential diagnostics; `pairexp.py` / `pairnew.py` are the recorded dead-end pairing experiments |
 | `INTEGRATION_PLAN.md` | The panel-API investigation, credential findings, and quality-scale roadmap |
 
@@ -108,6 +110,21 @@ Device classes are derived from each zone's voice descriptor (`Front Door` →
 `garage_door`, and so on). Keyfobs and pendants are created **disabled by
 default** — they are momentary and noisy.
 
+Five entities roll the zones up so you don't have to template over them:
+
+| Entity | On / value when |
+|---|---|
+| `binary_sensor.*_battery_low` | any zone reports a low battery |
+| `binary_sensor.*_tamper` | any zone reports tamper |
+| `binary_sensor.*_supervision_lost` | any zone has stopped checking in |
+| `binary_sensor.*_zones_bypassed` | any zone is bypassed |
+| `sensor.*_open_zones` | count of open doors, windows and other openings — motion and flood zones don't count |
+
+Each carries a `zones` attribute listing the zones responsible, which is what
+makes a notification worth reading (`Replace battery: Deck Door, Keyfob`). The
+roll-ups cover every zone the panel reports, including keyfobs whose own entity
+is disabled.
+
 ## Known limitations
 
 - **`armed_night` is inferred, not observed.** `/api/v1/status` returns only
@@ -115,9 +132,12 @@ default** — they are momentary and noisy.
   read-back. The integration remembers that *it* issued a night arm. Restart
   Home Assistant while armed-night and it falls back to `armed_home`. Any
   disarm, from any source, clears the flag.
-- **Polling, not push.** The panel's SSE endpoint (`/api/v1/events`) appears to
-  serve a single subscriber, which the SC100 controller holds. Worth retesting
-  once that controller is gone — it would remove polling entirely.
+- **Polling, not push.** The panel's SSE endpoint (`/api/v1/events`) is a stub on
+  this firmware. Measured 2026-08-02 with `tools/sse_probe.py`: it accepts any
+  number of concurrent subscribers, does not interfere with the REST API, sends
+  each one the literal banner `Event stream:` — and then nothing, through zone
+  faults and a full arm cycle. So the integration polls, and `iot_class` stays
+  `local_polling`.
 - **The panel refuses API connections for roughly a minute after it reboots.**
   Entities go unavailable and recover on their own; the coordinator logs it
   once rather than every poll.

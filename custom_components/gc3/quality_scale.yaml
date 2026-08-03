@@ -26,8 +26,9 @@ rules:
   entity-event-setup:
     status: exempt
     comment: |
-      Polling only. The panel's SSE endpoint serves one subscriber and is taken
-      by the SC100 controller (INTEGRATION_PLAN.md §1); there is nothing to
+      Polling only. The panel's SSE endpoint accepts subscribers but is a stub:
+      it emits a 14-byte banner on connect and never pushes an event, verified
+      across a full arm cycle (INTEGRATION_PLAN.md §6). There is nothing to
       subscribe to.
   entity-unique-id: done
   has-entity-name: done
@@ -61,13 +62,29 @@ rules:
   devices: done
   diagnostics: done
   discovery:
-    status: todo
+    status: exempt
     comment: |
-      Not yet established whether the GC3 advertises over mDNS. Panel addresses
-      are static in practice, so this is a convenience, not a blocker.
+      The panel advertises nothing to discover. Probed 2026-08-02 with
+      tools/mdns_probe.py three independent ways -- a passive sniff of
+      224.0.0.251:5353, unicast mDNS queries aimed straight at the panel, and a
+      full service-type enumeration -- and all three came back empty while the
+      panel was demonstrably online (tcp/3000 open, live ARP entry). The capture
+      itself was sound: 176 records from 26 service types resolved elsewhere on
+      the same LAN in the same window, none from the panel, and avahi's cache
+      holds no entry for it. The panel does not even answer a direct unicast
+      query, which most mDNS responders do. Caveat on record: the probe covered
+      steady state, not a boot-time announcement burst, so a panel that
+      announces only on network join and then stays silent for the record TTL
+      would not have been seen. Re-run `tools/mdns_probe.py --seconds 300`
+      across a power-cycle if that ever seems worth settling. Panel addresses
+      are static in practice, so this is convenience, not function.
+      See INTEGRATION_PLAN.md section 6.
   discovery-update-info:
-    status: todo
-    comment: Blocked on the discovery investigation above.
+    status: exempt
+    comment: |
+      Follows from discovery above: there is no discovery protocol to carry
+      updated network information. The host is user-entered and changed through
+      the reconfigure flow.
   docs-data-update: done
   docs-examples: done
   docs-known-limitations: done
@@ -81,24 +98,27 @@ rules:
       Zones added on the panel appear on the next poll. They are entities on the
       single panel device rather than devices of their own.
   entity-category:
-    status: exempt
+    status: done
     comment: |
-      Every entity is a primary sensor or the panel itself; none is diagnostic
-      or configuration.
+      The panel-health roll-ups (battery, tamper, supervision, bypass) are
+      diagnostic. Zones, the open-zone count and the panel itself are primary.
   entity-device-class: done
   entity-disabled-by-default:
     status: done
     comment: Keyfob/pendant zones are created disabled.
   entity-translations:
-    status: exempt
+    status: done
     comment: |
-      Zone names come from the panel's voiceDescriptor, which the user sets on
-      the panel in their own language; there is nothing to translate. The alarm
-      entity takes the device name.
+      The health and open-zone entities are translated. Zone names come from the
+      panel's voiceDescriptor, which the user sets on the panel in their own
+      language, so there is nothing to translate; the alarm entity takes the
+      device name.
   exception-translations: done
   icon-translations:
-    status: exempt
-    comment: Icons follow from device_class on every entity.
+    status: done
+    comment: |
+      Supervision, bypass and open-zone icons are in icons.json, including their
+      on-state variants. The rest follow from device_class.
   reconfiguration-flow: done
   repair-issues:
     status: done

@@ -9,8 +9,10 @@ packaging the same panel API behind a native config-flow integration.
 
 **Status: built.** `pygc3` and the integration are both complete, tested and
 lint/type clean; `quality_scale.yaml` records every rule. What is *not* done is
-soak-testing against the live panel since the rewrite, plus three external items
-(brands logo, the mDNS question, the SSE retest) — see §5 and §6. Sections 1 and
+soak-testing against the live panel since the rewrite, plus one external item
+(the brands logo) — see §5. Both investigative questions are now closed: the SSE
+endpoint is a stub, so polling is final, and the panel advertises no mDNS, so
+discovery is exempt (§6). Sections 1 and
 2 below are the investigation record and are unchanged; sections 3–6 have been
 updated to describe what was actually built where it diverged from the plan.
 
@@ -49,7 +51,7 @@ The api-key is checked first, so **any request without a valid api-key returns
 | GET/POST | `/api/v1/pair` | Read / create a pairing | see §2 |
 | GET/POST | `/api/v1/actions/panel/arm?partition=N` | Arm | — |
 | GET/POST | `/api/v1/actions/panel/disarm?partition=N` | Disarm | — |
-| — | `/api/v1/events` | SSE stream | unused; panel appears to serve a single subscriber (the SC100). Revisit once SC100 is fully removed. |
+| GET | `/api/v1/events` | SSE stream | **A stub.** Connects (`200`, `text/event-stream`, chunked), emits the banner `Event stream:\n`, then nothing — ever. See §6. Unused. |
 
 Anything else under `/api`, `/api/v1`, `/api/v1/{info,system,version,config,
 devices,clients,users,partitions,…}` → `404 Endpoint Not Found`. The surface is
@@ -273,26 +275,30 @@ or misconfigured (§1). One form, one real check.
 
 ## 4. Quality-scale roadmap
 
-Each rule mapped to concrete work for *this* integration. `n/a` items still need
-the explicit `quality_scale.yaml` exemption comment.
+Each rule mapped to concrete work for *this* integration. Every exempt rule now
+carries its reason in `quality_scale.yaml`.
 
 ### 🥉 Bronze — target for first release
-| Rule | Plan |
+Rewritten as-built 2026-08-02; the earlier version of this table still described
+a panel serial and an event subscription, neither of which exists.
+
+| Rule | As built |
 |---|---|
-| `config-flow` | Host + credentials steps above; `data_description` in strings.json |
-| `test-before-configure` | `GET /status` reachability check in the flow |
-| `test-before-setup` | `async_setup_entry` does a first fetch, raises `ConfigEntryNotReady` on conn fail / `ConfigEntryAuthFailed` on 403 |
-| `unique-config-entry` | `unique_id` = panel serial |
-| `entity-unique-id` | panel: `{serial}_alarm`; zones: `{serial}_zone_{id}` |
-| `has-entity-name` | `True` on the base entity |
-| `runtime-data` | `entry.runtime_data = GC3Data(client, coordinator)` |
-| `appropriate-polling` | coordinator interval, default 3s, user-configurable |
-| `action-setup` / `docs-actions` | arm/disarm exposed via standard `alarm_control_panel` services; document the night caveat |
-| `brands` | submit `gc3` logo/icon to `home-assistant/brands` |
-| `common-modules` | `entity.py` base, `coordinator.py`, `models.py` |
-| `dependency-transparency` | `pygc3` pinned in manifest `requirements` |
-| `docs-*` (high-level, install, removal) | port + expand this repo's README |
-| `entity-event-setup`, `config-flow-test-coverage` | subscribe in `async_added_to_hass`; pytest for the flow |
+| `config-flow` | One `user` step: host, api-key, pairing-key, optional PIN / port / partition. The two-step host-then-credentials split was dropped — an unauthenticated probe adds nothing, since the panel returns the same `403` whether it is healthy or misconfigured (§1, §3). `data_description` per field in strings.json |
+| `test-before-configure` | Authenticated `GET /status` with the entered key pair, inside the flow, so a typo fails in the dialog rather than after setup |
+| `test-before-setup` | `async_setup_entry` does a first refresh — `ConfigEntryNotReady` on connection failure, `ConfigEntryAuthFailed` on 403 |
+| `unique-config-entry` | `unique_id` = **host**, lowercased. Not a serial: `/status` returns two fields and nothing identifying (§1) |
+| `entity-unique-id` | Keyed on `entry_id`, not a serial — `{entry_id}_alarm`, `{entry_id}_zone_{id}`. Cost is that a remove-and-re-add orphans the old entities (§3) |
+| `has-entity-name` | `True` on the base entity in `entity.py` |
+| `runtime-data` | `entry.runtime_data` **is** the coordinator — it already holds the client. `GC3Data` is the coordinator's data payload (status + zones), not a runtime container |
+| `appropriate-polling` | Coordinator interval, default 3 s, 1–60 s via options |
+| `action-setup` / `docs-actions` | **exempt** — no custom actions; arm/disarm are the standard `alarm_control_panel` services, registered by that platform. The `armed_night` caveat is documented |
+| `brands` | ⬜ **the one rule still open** — logo/icon not yet submitted to `home-assistant/brands` |
+| `common-modules` | `entity.py` base, `coordinator.py` (which also holds the `GC3Data` dataclass). No separate `models.py` |
+| `dependency-transparency` | `pygc3` pinned in manifest `requirements`, built from source in this repo, published to PyPI from a tagged commit |
+| `docs-*` (high-level, install, removal) | README ported and expanded |
+| `config-flow-test-coverage` | pytest over the user, reauth and reconfigure steps |
+| `entity-event-setup` | **exempt** — polling only. The panel's SSE endpoint accepts subscribers but is a stub: a 14-byte banner on connect and never an event, verified across a full arm cycle (§6). There is nothing to subscribe to |
 
 ### 🥈 Silver — reliability
 | Rule | Plan |
@@ -312,7 +318,7 @@ the explicit `quality_scale.yaml` exemption comment.
 |---|---|
 | `devices` | single panel device, all entities attached |
 | `diagnostics` | dump status+zones with `api_key`/`pairing_key`/serials redacted |
-| `discovery` | GC3 advertises over mDNS? **investigate** — if it does, add zeroconf discovery; else document `n/a`. (Panel IP is static in practice.) |
+| `discovery` | ✅ investigated — the panel advertises nothing over mDNS (§6); `exempt`, along with `discovery-update-info`. Panel IP is static in practice. |
 | `dynamic-devices` / `stale-devices` | add zones that appear at runtime; remove zones deleted on the panel between polls |
 | `entity-category` | mark keyfob / diagnostic-ish sensors appropriately |
 | `entity-device-class` | door/window/motion/moisture/smoke/CO/garage_door — reuse the bridge's fixed mapping; refine via `zonePhysicalType` |
@@ -324,18 +330,19 @@ the explicit `quality_scale.yaml` exemption comment.
 | `update` (firmware) | `n/a` — panel firmware isn't updatable via this API |
 
 ### 🏆 Platinum
-| Rule | Plan |
+| Rule | As built |
 |---|---|
-| `async-dependency` | `pygc3` is aiohttp-native |
-| `inject-websession` | client accepts `async_get_clientsession(hass)` |
-| `strict-typing` | full annotations; add to HA's `.strict-typing`; `models.py` dataclasses |
+| `async-dependency` | `pygc3` is aiohttp-native end to end — no executor threads, no sync shim wrapped in `async_add_executor_job`. It was written for this integration (`pygc3/` in this repo) rather than adapted from a blocking library |
+| `inject-websession` | The client takes a session and never creates one. Both `__init__.py` and `config_flow.py` pass `async_get_clientsession(hass, verify_ssl=False)` — the panel serves a self-signed cert on `:3000` (§1), and HA keeps that non-verifying session separate from the verifying one |
+| `strict-typing` | `mypy strict = true` over both the integration and `pygc3`, enforced in CI (`test.yml` runs `mypy` for each). `pygc3` ships `py.typed`. One deviation, commented in `pyproject.toml`: `no_implicit_reexport = false`, because HA's component packages re-export their constants without `__all__` and core integrations import them from the package root. Dataclasses live in `coordinator.py`; there is no `models.py` |
 
 **Deliverable of this section:** a `quality_scale.yaml` in the component with every
 rule marked `done` / `todo` / `exempt` (+ reason), which is the file reviewers read.
-✅ **Written.** Three rules remain open, all of them external or investigative
-rather than code: `brands` (logo not yet submitted to `home-assistant/brands`)
-and `discovery` / `discovery-update-info` (unknown whether the panel advertises
-over mDNS). Everything else is `done` or `exempt` with a stated reason.
+✅ **Written.** One rule remains open, and it is external rather than code:
+`brands` (logo not yet submitted to `home-assistant/brands`). `discovery` and
+`discovery-update-info` were the other two and are now closed as `exempt` — the
+panel advertises nothing over mDNS (§6). Everything else is `done` or `exempt`
+with a stated reason.
 
 ---
 
@@ -353,19 +360,19 @@ over mDNS). Everything else is `done` or `exempt` with a stated reason.
 4. **Silver** ✅ done — reauth flow, `entity-unavailable`, translated action
    exceptions, `PARALLEL_UPDATES`, clean entry unload. 58 tests, 98.9% coverage
    (95% enforced in CI).
-5. **Gold** — diagnostics ✅, dynamic/stale zones ✅, supervision repair issue ✅,
-   exception/issue translations ✅, reconfigure flow ✅, full docs ✅.
-   **Discovery is the one open item** (see §6).
+5. **Gold** ✅ done — diagnostics ✅, dynamic/stale zones ✅, supervision repair
+   issue ✅, exception/issue translations ✅, reconfigure flow ✅, full docs ✅,
+   discovery investigated and exempted ✅ (see §6).
 6. **Platinum** ✅ done — `pygc3` is aiohttp-native, HA's shared session is
    injected, `mypy --strict` clean on both packages, `quality_scale.yaml`
    written.
 
    **Core submission is deliberately not started.** Ship as a HACS custom repo
    first: this has run against exactly one panel on one firmware, and several
-   findings (§2a's pairing gates, the SSE single-subscriber behaviour, the
+   findings (§2a's pairing gates, §6's stub SSE endpoint and absent mDNS, the
    zone-descriptor device-class heuristic) want confirmation from other people's
-   hardware before a core PR is honest. `brands` and the discovery question are
-   the concrete blockers.
+   hardware before a core PR is honest. `brands` is now the only concrete
+   blocker.
 
 The bridge keeps running throughout; the integration only replaces it once
 entity parity is verified against the live panel.
@@ -397,14 +404,67 @@ has not been done since the rewrite.
 
 **Still open:**
 
-- **mDNS/zeroconf discovery** — untested. Determines whether Gold `discovery`
-  becomes a feature or a documented exemption. Panel addresses are static in
-  practice, so this is convenience, not function. *This is the only thing
-  standing between the current state and a fully-resolved Gold.*
-- **SSE `/api/v1/events`** — currently single-subscriber, held by the SC100.
-  Once that controller is off, retest: push would remove polling entirely and
-  change `iot_class` to `local_push`. Worth doing before any core submission,
-  since it would change the integration's shape.
+- ~~**mDNS/zeroconf discovery**~~ — **RESOLVED 2026-08-02: the panel advertises
+  nothing.** Gold `discovery` and `discovery-update-info` are marked `exempt`.
+  Probed with `tools/mdns_probe.py`, three independent methods in one run:
+
+  | Method | Result |
+  |---|---|
+  | Passive sniff of `224.0.0.251:5353` | 0 packets from the panel — against 18 from 5 other hosts in the same window, so the capture was live |
+  | Unicast mDNS straight at the panel | No reply to any of 6 queries: the `_services._dns-sd._udp.local` enumeration PTR, the reverse `in-addr.arpa` PTR, and 4 guessed `.local` A records |
+  | Full service-type enumeration | 26 service types / 176 resolved records LAN-wide, **none** from the panel |
+
+  The panel was demonstrably online throughout (`tcp/3000` open in 1ms, live ARP
+  entry), and avahi's cache — running continuously and caching every other host
+  — holds no entry for it. Not answering even a *direct unicast* query is the
+  telling part; most mDNS responders will.
+
+  **Caveat, stated rather than buried:** this covered steady state, not a
+  boot-time announcement burst. A stack that announces only on network join and
+  then goes quiet for the record TTL (often 75 min) would not have been caught.
+  Rebooting a live alarm panel to close that gap was judged not worth it. If it
+  ever is:
+
+  ```
+  python3 tools/mdns_probe.py --seconds 300    # then power-cycle the panel
+  ```
+
+  Exit code 0 = something found, 1 = clean negative, 2 = capture was empty.
+- ~~**SSE `/api/v1/events`**~~ — **RESOLVED 2026-08-02: the endpoint is a stub.**
+  The integration stays `local_polling`; `iot_class` does not change. Two probe
+  runs with `tools/sse_probe.py` (180s each, zone tripped and a full arm cycle
+  performed during the window):
+
+  | Question | Result |
+  |---|---|
+  | Exists? | Yes — `OPTIONS` → `200 Allow: GET`; unauthenticated → `403 {"message":"Invalid API key"}` |
+  | Connects? | Yes — `200`, `Content-Type: text/event-stream`, chunked, `Connection: keep-alive` |
+  | Single-subscriber? | **No — the long-standing assumption was wrong.** Eight concurrent subscribers were all served `200`, none evicted. The SC100 was never the reason. |
+  | Starves the REST API? | **No.** 18/18 `/status` polls succeeded while streams were held. |
+  | Pushes events? | **No.** Every subscriber gets the literal 14-byte banner `b"Event stream:\n"` and nothing else, ever. |
+
+  The banner is the finding: a bare label, byte-identical across every variant
+  tried (`?partition=1`, `?partition=1&allPartitions=true`, `?subscribe=all`,
+  `?topic=zones`, `Accept: */*`, `Last-Event-ID: 0`, and the bare GET), with no
+  `event:`/`data:` framing and no traffic across a `ready → not_ready → arming →
+  armed` cycle that the concurrent `/status` polls captured in full. A sub-path
+  (`/api/v1/events/1`) returns the usual `404 Endpoint Not Found`, so the router
+  is working normally — this handler writes a header and was never wired to the
+  panel's event bus.
+
+  **Do not spend more time here.** The remaining hypothesis (an undocumented
+  argument nobody has guessed) is not worth chasing against a handler that emits
+  a placeholder string. Re-run `--variants` only if a firmware update ships:
+
+  ```
+  export PANEL_URL=https://<panel-ip>:3000 API_KEY=... PAIRING_KEY=...
+  pygc3/.venv/bin/python tools/sse_probe.py --seconds 120 --variants
+  ```
+
+  If it ever does emit, adopt `local_push` only if events arrive **and** the REST
+  polls all still succeed, and keep a slow poll as a safety net regardless (the
+  panel refuses connections for ~a minute after reboot, and a dropped stream must
+  not silently freeze state).
 - **Does re-pairing rotate the pairing code?** Never observed to (the code was
   unchanged across all three attempts), but all three were refused at gate 2,
   so a *successful* re-pair remains untested. Capture `GET /api/v1/pair` before

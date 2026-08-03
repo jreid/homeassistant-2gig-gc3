@@ -1,0 +1,23 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "supervision_lost": {
+        "default": "mdi:access-point-network",
+        "state": {
+          "on": "mdi:access-point-network-off"
+        }
+      },
+      "zones_bypassed": {
+        "default": "mdi:shield-check-outline",
+        "state": {
+          "on": "mdi:shield-off-outline"
+        }
+      }
+    },
+    "sensor": {
+      "open_zones": {
+        "default": "mdi:door-open"
+      }
+    }
+  }
+}

@@ -40,6 +40,8 @@ def zone(
     in_alarm: bool = False,
     loss_of_supervision: bool = False,
     battery_low: bool = False,
+    tampered: bool = False,
+    bypassed: bool = False,
 ) -> dict[str, Any]:
     """Build a zone payload in the panel's own shape."""
     return {
@@ -58,10 +60,10 @@ def zone(
             "inAlarm": in_alarm,
             "inAlarmType": 0,
             "batteryLow": battery_low,
-            "tampered": False,
+            "tampered": tampered,
             "crossed": False,
             "bypassable": True,
-            "bypassed": False,
+            "bypassed": bypassed,
             "bypassedByUser": 0,
             "bypassType": 0,
             "lossOfSupervision": loss_of_supervision,

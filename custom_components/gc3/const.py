@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "gc3"
 
-PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.ALARM_CONTROL_PANEL, Platform.BINARY_SENSOR, Platform.SENSOR]
 
 # Config entry keys (host/port/api_key reuse homeassistant.const equivalents)
 CONF_PAIRING_KEY = "pairing_key"

@@ -83,6 +83,42 @@
       }
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "battery_low": {
+        "name": "Battery low",
+        "state_attributes": {
+          "zones": { "name": "Zones" }
+        }
+      },
+      "tamper": {
+        "name": "Tamper",
+        "state_attributes": {
+          "zones": { "name": "Zones" }
+        }
+      },
+      "supervision_lost": {
+        "name": "Supervision lost",
+        "state_attributes": {
+          "zones": { "name": "Zones" }
+        }
+      },
+      "zones_bypassed": {
+        "name": "Zones bypassed",
+        "state_attributes": {
+          "zones": { "name": "Zones" }
+        }
+      }
+    },
+    "sensor": {
+      "open_zones": {
+        "name": "Open zones",
+        "state_attributes": {
+          "zones": { "name": "Zones" }
+        }
+      }
+    }
+  },
   "exceptions": {
     "command_failed": {
       "message": "The GC3 panel rejected the command: {error}"

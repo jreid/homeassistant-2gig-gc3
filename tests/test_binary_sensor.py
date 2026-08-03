@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
-from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
+from homeassistant.const import (
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
+    EntityCategory,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
@@ -59,7 +64,9 @@ async def test_zone_entities_created(
 
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, config_entry.entry_id)
-    zone_entries = [e for e in entries if e.domain == "binary_sensor"]
+    zone_entries = [
+        e for e in entries if e.domain == "binary_sensor" and "_zone_" in e.unique_id
+    ]
     assert len(zone_entries) == len(ZONES)
 
     state = hass.states.get(MUD_ROOM)
@@ -166,6 +173,96 @@ async def test_zone_unavailable_when_polling_fails(
     await _advance(hass, freezer)
 
     assert hass.states.get(MUD_ROOM).state == STATE_UNAVAILABLE
+
+
+async def test_health_sensors_created(
+    hass: HomeAssistant, mock_client: AsyncMock, config_entry: MockConfigEntry
+) -> None:
+    """The four panel-health roll-ups exist, are diagnostic, and start clear."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    for key in ("battery_low", "tamper", "supervision_lost", "zones_bypassed"):
+        entity_id = f"binary_sensor.2gig_gc3_{key}"
+        state = hass.states.get(entity_id)
+        assert state is not None, entity_id
+        assert state.state == STATE_OFF
+        assert state.attributes["zones"] == []
+        assert (
+            registry.async_get(entity_id).entity_category is EntityCategory.DIAGNOSTIC
+        )
+
+
+@pytest.mark.parametrize(
+    ("key", "flag"),
+    [
+        ("battery_low", "battery_low"),
+        ("tamper", "tampered"),
+        ("supervision_lost", "loss_of_supervision"),
+        ("zones_bypassed", "bypassed"),
+    ],
+)
+async def test_health_sensor_names_the_offending_zones(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer,
+    key: str,
+    flag: str,
+) -> None:
+    """A flag on any zone lights the roll-up and names that zone."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_id = f"binary_sensor.2gig_gc3_{key}"
+    assert hass.states.get(entity_id).state == STATE_OFF
+
+    set_zones(mock_client, [zone("1", "Mud Room Door", **{flag: True}), *ZONES[1:]])
+    await _advance(hass, freezer)
+
+    state = hass.states.get(entity_id)
+    assert state.state == STATE_ON
+    # The zone list is the actionable half: "replace which battery?"
+    assert state.attributes["zones"] == ["Mud Room Door"]
+
+
+async def test_health_sensor_covers_disabled_zones(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer,
+) -> None:
+    """A keyfob has no entity of its own, but its flat battery still counts."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    set_zones(mock_client, [*ZONES[:-1], zone("301", "Keyfob", battery_low=True)])
+    await _advance(hass, freezer)
+
+    state = hass.states.get("binary_sensor.2gig_gc3_battery_low")
+    assert state.state == STATE_ON
+    assert state.attributes["zones"] == ["Keyfob"]
+
+
+async def test_health_sensor_unavailable_when_polling_fails(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer,
+) -> None:
+    """A stale "no faults" is worse than saying nothing."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    mock_client.zones.side_effect = GC3ConnectionError("refused")
+    await _advance(hass, freezer)
+
+    assert hass.states.get("binary_sensor.2gig_gc3_tamper").state == STATE_UNAVAILABLE
 
 
 async def _advance(hass: HomeAssistant, freezer) -> None:
