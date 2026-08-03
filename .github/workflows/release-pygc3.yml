@@ -43,3 +43,7 @@ jobs:
           name: pygc3-dist
           path: dist
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Re-pushing a tag re-runs this job; without this the upload fails
+          # with "400 File already exists".
+          skip-existing: true
