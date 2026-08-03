@@ -10,5 +10,5 @@
   "loggers": ["pygc3"],
   "quality_scale": "bronze",
   "requirements": ["pygc3==0.1.0"],
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

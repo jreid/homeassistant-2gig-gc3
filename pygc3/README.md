@@ -68,6 +68,22 @@ all subclasses of `GC3Error`.
 TLS verification is off by default (`verify_ssl=False`) for the panel's
 self-signed cert.
 
+### There is no push API — poll
+
+The panel exposes `GET /api/v1/events` as SSE, and it is a stub. Probed against
+firmware as of 2026-08-03: it accepts any number of concurrent subscribers
+without evicting any, does not starve the REST endpoints while streams are
+held, and sends each subscriber the literal 14-byte banner `Event stream:` —
+then nothing, ever, including across a full arm cycle that concurrent `/status`
+polls captured in full. There is no `event:`/`data:` framing and no query
+argument that changes it. The handler writes a header and was never wired to
+the panel's event bus.
+
+So this library does not wrap it, and consumers should poll `status()` and
+`zones()`. If a firmware update ever makes it emit, keep a slow poll as a
+safety net regardless: the panel refuses connections for roughly a minute after
+it reboots, and a silently dropped stream must not freeze your state.
+
 ## Develop
 
 ```bash

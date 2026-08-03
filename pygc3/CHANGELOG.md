@@ -3,7 +3,20 @@
 All notable changes to `pygc3` are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — unreleased
+## [Unreleased]
+
+Not yet on PyPI. These are documentation changes only, held here until the
+library has a code change worth a release of its own.
+
+- Documented that `GET /api/v1/events` is a stub, so nobody builds a push
+  client on it. It accepts any number of concurrent subscribers and does not
+  interfere with the REST API, but emits only the banner `Event stream:` and
+  never an event — verified across a full arm cycle, with no `event:`/`data:`
+  framing and no query argument that changes it. Poll instead.
+- Corrected the 0.1.0 entry below, which still read `unreleased` after that
+  version was published to PyPI on 2026-08-03.
+
+## [0.1.0] — 2026-08-03
 
 First public release. Extracted from the `gc3_bridge.py` MQTT bridge that has
 been driving a live GC3 panel, and rewritten on `aiohttp`.
