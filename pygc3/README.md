@@ -27,7 +27,7 @@ async def main():
         zones = await gc3.zones()            # list[Zone], console filtered out
         print(status.arm_state, len(zones))
 
-        await gc3.arm(stay=True, night=True) # night = stay + instant entry
+        await gc3.arm(stay=True)             # flags are named for the wire
         await gc3.disarm("1234")
 
 asyncio.run(main())
@@ -57,7 +57,7 @@ async with GC3Client(host, pairing_key="123456") as gc3:  # no api_key
 | `status()` | `GET /api/v1/status` | `PanelStatus` |
 | `zones(include_console=False)` | `GET /api/v1/zones` | `list[Zone]` |
 | `get_pairing()` | `GET /api/v1/pair` | `Pairing` |
-| `arm(*, stay, night=…, …)` | `POST …/panel/arm` | raw dict |
+| `arm(*, stay, no_entry_delay=…, no_exit_delay=…, …)` | `POST …/panel/arm` | raw dict |
 | `disarm(pin)` | `POST …/panel/disarm` | raw dict |
 | `pair(device_name)` | `POST /api/v1/pair` | raw dict |
 
@@ -89,7 +89,7 @@ it reboots, and a silently dropped stream must not freeze your state.
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[test,dev]"
-pytest --cov=pygc3      # 27 tests, ~98% coverage; HTTP faked via the session seam
+pytest --cov=pygc3      # 28 tests, ~98% coverage; HTTP faked via the session seam
 mypy                    # strict, clean
 ruff check src tests
 ```

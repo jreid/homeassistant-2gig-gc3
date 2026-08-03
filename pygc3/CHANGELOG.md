@@ -3,10 +3,28 @@
 All notable changes to `pygc3` are recorded here. This project follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] — 2026-08-03
 
-Not yet on PyPI. These are documentation changes only, held here until the
-library has a code change worth a release of its own.
+### Changed — breaking
+
+- `GC3Client.arm()`'s `night` argument is renamed `no_entry_delay`. There is no
+  night flag on the wire; `night` was this library naming a panel flag
+  (`noEntryDelay`) after one thing consumers commonly build with it, which is
+  precisely the confusion a transport library should not introduce. Every arm
+  argument is now named for the wire flag it sets.
+
+  Migration is a rename: `arm(stay=True, night=True)` becomes
+  `arm(stay=True, no_entry_delay=True)`. No alias is kept — an alias would
+  preserve the ambiguity, and at 0.x with the API days old, a clean break is
+  cheaper than living with it.
+
+  Note that `no_entry_delay=True` means the siren sounds the instant an entry
+  zone opens, with no chance to disarm. If you were passing `night=True` to
+  label a state rather than to get that behaviour, you wanted neither argument:
+  arm without it and track the label yourself, since `status()` returns only
+  `armState` and `isArmedStay` and cannot report a night mode back.
+
+### Documentation
 
 - Documented that `GET /api/v1/events` is a stub, so nobody builds a push
   client on it. It accepts any number of concurrent subscribers and does not

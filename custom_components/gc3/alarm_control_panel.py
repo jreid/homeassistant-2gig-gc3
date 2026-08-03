@@ -66,15 +66,10 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
         return self.coordinator.alarm_state
 
     def _arm_options(self, entry_delay_option: str) -> dict[str, bool]:
-        """Panel flags for an arm command, with entry delay per arm mode.
-
-        `night` here is pygc3's name for the panel's `noEntryDelay` flag, not
-        the armed_night label -- the two are unrelated, which is exactly why
-        entry delay is now its own option (see below).
-        """
+        """Panel flags for an arm command, with entry delay per arm mode."""
         options = self.coordinator.config_entry.options
         return {
-            "night": options.get(entry_delay_option, False),
+            "no_entry_delay": options.get(entry_delay_option, False),
             "no_exit_delay": options.get(CONF_NO_EXIT_DELAY, False),
             "bypass_not_ready": options.get(CONF_BYPASS_NOT_READY, False),
         }
@@ -123,15 +118,10 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
         )
 
     async def async_alarm_arm_night(self, code: str | None = None) -> None:
-        # Night takes its own entry-delay option. Arming instant is the
-        # conventional meaning of night mode, but it is off by default because
-        # it once was not: passing noEntryDelay unconditionally made night alarm
-        # the instant an entry zone opened, which is a surprise nobody wants
-        # from a live siren. Opt in via CONF_NIGHT_NO_ENTRY_DELAY.
-        #
-        # The night=True argument below is the Home Assistant-side label, which
-        # the coordinator remembers because the panel cannot report it back. It
-        # is not the panel flag of the same name -- see _arm_options.
+        # night=True is the Home Assistant-side label, which the coordinator
+        # remembers because the panel cannot report it back. The panel is told
+        # nothing about night -- it has no such flag. Whether the siren is
+        # instant is CONF_NIGHT_NO_ENTRY_DELAY's business, and it defaults off.
         await self._command(
             lambda: self.coordinator.client.arm(
                 stay=True, **self._arm_options(CONF_NIGHT_NO_ENTRY_DELAY)

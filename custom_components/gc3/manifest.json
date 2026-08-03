@@ -9,6 +9,6 @@
   "issue_tracker": "https://github.com/jreid/homeassistant-2gig-gc3/issues",
   "loggers": ["pygc3"],
   "quality_scale": "bronze",
-  "requirements": ["pygc3==0.1.0"],
+  "requirements": ["pygc3==0.2.0"],
   "version": "0.2.0"
 }

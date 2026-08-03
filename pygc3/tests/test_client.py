@@ -66,9 +66,10 @@ async def test_get_pairing(pair_json):
     assert p.device_name == "TEST Controller"
 
 
-async def test_arm_night_body():
+async def test_arm_no_entry_delay_body():
+    """Each kwarg sets the wire flag it is named after, and only that one."""
     sess = FakeSession(FakeResponse(json_data={"ok": True}))
-    await make_client(sess, partition=2).arm(stay=True, night=True)
+    await make_client(sess, partition=2).arm(stay=True, no_entry_delay=True)
     call = sess.calls[0]
     assert call["method"] == "POST"
     assert call["url"].endswith("/api/v1/actions/panel/arm")
@@ -76,11 +77,20 @@ async def test_arm_night_body():
         "partition": 2,
         "armStay": True,
         "noExitDelay": False,
-        "noEntryDelay": True,  # night -> instant entry
+        "noEntryDelay": True,
         "bypassNotReadyZones": False,
         "silentEntryExit": False,
     }
     assert call["kwargs"]["params"] == {"partition": 2}
+
+
+async def test_arm_has_no_night_concept():
+    """There is no night flag on the wire, so the client must not invent one."""
+    with pytest.raises(TypeError):
+        await make_client(FakeSession(FakeResponse(json_data={}))).arm(
+            stay=True,
+            night=True,  # type: ignore[call-arg]
+        )
 
 
 async def test_arm_away_body():

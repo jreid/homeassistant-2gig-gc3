@@ -14,9 +14,8 @@ CONF_DISARM_PIN = "disarm_pin"
 CONF_PARTITION = "partition"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_NO_EXIT_DELAY = "no_exit_delay"
-# Entry delay is split per arm mode: arming home/away instant means tripping
-# your own alarm on the way in, while an instant night arm is the conventional
-# meaning of night mode. One toggle could not serve both.
+# Split per arm mode: arming home/away instant trips the siren on the way in,
+# while an instant night arm is the conventional meaning of night mode.
 CONF_NO_ENTRY_DELAY = "no_entry_delay"
 CONF_NIGHT_NO_ENTRY_DELAY = "night_no_entry_delay"
 CONF_BYPASS_NOT_READY = "bypass_not_ready"

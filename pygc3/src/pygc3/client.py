@@ -166,7 +166,7 @@ class GC3Client:
         self,
         *,
         stay: bool,
-        night: bool = False,
+        no_entry_delay: bool = False,
         no_exit_delay: bool = False,
         bypass_not_ready: bool = False,
         silent: bool = False,
@@ -174,16 +174,21 @@ class GC3Client:
     ) -> Any:
         """Arm the panel.
 
-        ``night`` = stay + instant entry (``noEntryDelay``). The panel does not
-        report night back on :meth:`status`, so a consumer that wants to show
-        ``armed_night`` must remember it issued this.
+        Each argument is one flag in the panel's arm request, named after it.
+        ``no_entry_delay`` sets ``noEntryDelay``: the alarm sounds the moment an
+        entry zone opens, with no countdown to disarm in.
+
+        There is no night flag on the wire, and :meth:`status` reports only
+        ``armState`` and ``isArmedStay``. A consumer offering a night mode owns
+        that concept: it chooses which flags night sends and remembers it armed
+        that way.
         """
         part = partition or self._partition
         body = {
             "partition": part,
             "armStay": stay,
             "noExitDelay": no_exit_delay,
-            "noEntryDelay": night,
+            "noEntryDelay": no_entry_delay,
             "bypassNotReadyZones": bypass_not_ready,
             "silentEntryExit": silent,
         }
