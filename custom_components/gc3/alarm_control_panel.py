@@ -22,7 +22,6 @@ from .const import (
     CONF_DISARM_PIN,
     CONF_NIGHT_NO_ENTRY_DELAY,
     CONF_NO_ENTRY_DELAY,
-    CONF_NO_EXIT_DELAY,
     DOMAIN,
 )
 from .coordinator import GC3ConfigEntry, GC3Coordinator
@@ -66,11 +65,20 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
         return self.coordinator.alarm_state
 
     def _arm_options(self, entry_delay_option: str) -> dict[str, bool]:
-        """Panel flags for an arm command, with entry delay per arm mode."""
+        """Panel flags for an arm command, with entry delay per arm mode.
+
+        The exit delay is always suppressed. It exists so that whoever armed the
+        panel can walk out afterwards, and an arm issued over this API has
+        nobody walking out -- a schedule, a dashboard tap or a phone. The
+        panel's own keypad keeps its countdown and is the way to arm and leave.
+
+        For away it is not merely pointless but harmful; see
+        `async_alarm_arm_away`.
+        """
         options = self.coordinator.config_entry.options
         return {
             "no_entry_delay": options.get(entry_delay_option, False),
-            "no_exit_delay": options.get(CONF_NO_EXIT_DELAY, False),
+            "no_exit_delay": True,
             "bypass_not_ready": options.get(CONF_BYPASS_NOT_READY, False),
         }
 
@@ -110,6 +118,18 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
         )
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
+        # The suppressed exit delay (see `_arm_options`) is load-bearing here.
+        # The panel has an auto-stay feature: an away arm that reaches the end
+        # of its exit delay without an exit zone having opened is converted to a
+        # stay arm, on the reasoning that nobody left. Over this API nobody ever
+        # does, so every away arm with a countdown came back armed_home, with
+        # the interior zones silently bypassed and nothing to say so.
+        #
+        # Measured on a GC3: armStay=false with a 60s exit delay and no door
+        # opened reports isArmedStay=true at exactly the 60s mark; the same
+        # command with noExitDelay=true skips the `arming` state entirely and
+        # reports isArmedStay=false. With no countdown there is no window to
+        # convert in.
         await self._command(
             lambda: self.coordinator.client.arm(
                 stay=False, **self._arm_options(CONF_NO_ENTRY_DELAY)

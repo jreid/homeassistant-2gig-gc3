@@ -23,7 +23,6 @@ from .const import (
     CONF_DISARM_PIN,
     CONF_NIGHT_NO_ENTRY_DELAY,
     CONF_NO_ENTRY_DELAY,
-    CONF_NO_EXIT_DELAY,
     CONF_PAIRING_KEY,
     CONF_PARTITION,
     CONF_POLL_INTERVAL,
@@ -170,10 +169,6 @@ class GC3OptionsFlow(OptionsFlow):
                     ): vol.All(
                         int, vol.Range(min=MIN_POLL_INTERVAL, max=MAX_POLL_INTERVAL)
                     ),
-                    vol.Optional(
-                        CONF_NO_EXIT_DELAY,
-                        default=options.get(CONF_NO_EXIT_DELAY, False),
-                    ): bool,
                     vol.Optional(
                         CONF_NO_ENTRY_DELAY,
                         default=options.get(CONF_NO_ENTRY_DELAY, False),

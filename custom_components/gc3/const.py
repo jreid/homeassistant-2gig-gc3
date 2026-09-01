@@ -13,7 +13,6 @@ CONF_PAIRING_KEY = "pairing_key"
 CONF_DISARM_PIN = "disarm_pin"
 CONF_PARTITION = "partition"
 CONF_POLL_INTERVAL = "poll_interval"
-CONF_NO_EXIT_DELAY = "no_exit_delay"
 # Split per arm mode: arming home/away instant trips the siren on the way in,
 # while an instant night arm is the conventional meaning of night mode.
 CONF_NO_ENTRY_DELAY = "no_entry_delay"

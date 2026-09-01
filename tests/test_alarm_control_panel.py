@@ -34,7 +34,6 @@ from custom_components.gc3.const import (
     CONF_DISARM_PIN,
     CONF_NIGHT_NO_ENTRY_DELAY,
     CONF_NO_ENTRY_DELAY,
-    CONF_NO_EXIT_DELAY,
 )
 from pygc3 import GC3ConnectionError, GC3ResponseError
 
@@ -90,15 +89,17 @@ async def test_arm_services(
     service: str,
     expected: dict,
 ) -> None:
-    """Each arm service maps to the right pygc3 call, with delays left alone."""
+    """Each arm service maps to the right pygc3 call, entry delay left alone."""
     await _setup(hass, config_entry)
     await _call(hass, service)
 
     kwargs = mock_client.arm.await_args.kwargs
     assert {k: kwargs[k] for k in expected} == expected
-    assert kwargs["no_exit_delay"] is False
     assert kwargs["no_entry_delay"] is False
     assert kwargs["bypass_not_ready"] is False
+    # Never a countdown over the API, in any mode -- for away it is what stops
+    # the panel's auto-stay converting the arm to a stay arm.
+    assert kwargs["no_exit_delay"] is True
 
 
 async def test_arm_keeps_entry_delay_by_default(
@@ -153,19 +154,16 @@ async def test_arm_home_after_night_is_not_night(
 async def test_arm_uses_configured_options(
     hass: HomeAssistant, mock_client: AsyncMock, config_entry: MockConfigEntry
 ) -> None:
-    """no_exit_delay / bypass_not_ready options reach the panel."""
+    """bypass_not_ready reaches the panel."""
     config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
-        config_entry,
-        options={CONF_NO_EXIT_DELAY: True, CONF_BYPASS_NOT_READY: True},
+        config_entry, options={CONF_BYPASS_NOT_READY: True}
     )
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     await _call(hass, SERVICE_ALARM_ARM_AWAY)
-    kwargs = mock_client.arm.await_args.kwargs
-    assert kwargs["no_exit_delay"] is True
-    assert kwargs["bypass_not_ready"] is True
+    assert mock_client.arm.await_args.kwargs["bypass_not_ready"] is True
 
 
 @pytest.mark.parametrize(
