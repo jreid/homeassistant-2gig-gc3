@@ -93,7 +93,6 @@ Under **Configure** on the integration afterwards:
 | Option | Default | Notes |
 |---|---|---|
 | Poll interval | 3 s | 1–60. The panel is local and cheap to poll |
-| Arm with no exit delay | off | Arms instantly instead of counting down |
 | No entry delay when armed home or away | off | Siren the moment an entry zone opens, with no time to disarm |
 | No entry delay when armed night | off | The same, night only — the conventional meaning of arming night |
 | Bypass open zones when arming | off | Arms past open zones instead of failing |
@@ -104,6 +103,31 @@ while instant *is* what night mode traditionally means. Both default off, so
 the panel's own programmed delay runs unless you say otherwise. The delay's
 **length** is not settable here — the panel's API exposes only an on/off flag,
 so change the duration on the panel itself.
+
+### Arming is always instant, in every mode
+
+There is no exit-delay option, because there is no case for one here. The exit
+delay exists so that whoever armed the panel can walk out afterwards, and an arm
+issued over this API — a schedule, a dashboard tap, a phone — has nobody walking
+out. **Arm from the panel's own keypad when you need time to leave**; the keypad
+keeps its countdown.
+
+For away arms the countdown is not merely useless but actively harmful. The
+panel has an auto-stay feature: an away arm that reaches the end of its exit
+delay without an exit zone having opened is converted to a **stay** arm, on the
+reasoning that nobody left. Sound at the keypad, wrong over the API — so every
+away arm with a countdown came back `armed_home`, with the interior zones
+silently bypassed and nothing to say anything had changed.
+
+Measured on a GC3, `armStay=false` with a 60 s exit delay and no door opened
+reports `isArmedStay=true` at exactly the 60 s mark. The same command with
+`noExitDelay=true` skips the `arming` state altogether and reports
+`isArmedStay=false`: with no countdown there is no window to convert in.
+
+One consequence worth knowing: with no countdown, a door opened just after
+arming is treated as an entry rather than an exit. On an entry-delay zone that
+starts the entry countdown and you disarm as usual; on an instant zone it trips
+the siren. Previously the exit delay would have covered both.
 
 Host, port and PIN can be changed later with **Reconfigure**; if the panel
 rejects the keys, HA raises a reauthentication prompt.
