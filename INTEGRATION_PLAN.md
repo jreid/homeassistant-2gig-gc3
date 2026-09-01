@@ -130,10 +130,69 @@ Conclusion:
   creds verified intact after every attempt. So the panel isn't reaching the
   pairing-authorized state from the keypad steps taken, **or** that state relaxes
   the middleware only for an *unauthenticated new* device (which we can't drive
-  without the real installer pairing screen). The single remaining untested
-  hypothesis: an *unauthenticated* `POST /api/v1/pair` during a genuinely-active
-  window. Parked — low reward per §2c, not worth more blind timing trials on a
-  live alarm.
+  without the real installer pairing screen). The remaining hypothesis — an
+  *unauthenticated* `POST /api/v1/pair` during a genuinely-active window — has
+  since been **tested and disproved** against the real System Pairing screen; see
+  the System Pairing note below.
+
+**Corroborating datapoint — the SP1 keypad pairing flow.** AlarmGrid's SP1
+enrollment guide describes a Wi-Fi/LAN device paired from **Installer Toolbox →
+System Configuration → Keypads** by a mutual button-press: press **Pair** under
+*Device ID* on the panel, then **Pair** on the physical keypad. Two things it
+confirms: (1) the panel surfaces **no pairing code** in this flow — enrollment
+is button-press mutual-authorize, so the §2a hope for a screen that *reveals* a
+code is likely misguided by design; (2) the SP1 arrives with **no prior
+api-key** yet gets enrolled, which is a working existence proof of the single
+untested hypothesis above — an *unauthenticated* new device enrolling during a
+genuinely-active pairing window opened from a specific installer screen. Caveat:
+the SP1 is a **keypad** (equipment code `1060`), a different device class from
+the automation/SC controller our api-key belongs to, so this screen won't enroll
+the controller. The actionable next probe is to hunt the Installer Toolbox for a
+controller/automation/"Services" enrollment slot analogous to Keypads; if one
+exists, pressing its **Pair** should open gate 2 for an automation device, and
+an unauthenticated `POST /api/v1/pair` during that window becomes the test worth
+running. Source:
+<https://www.alarmgrid.com/faq/how-do-i-pair-the-2gig-sp1-keypad-with-the-2gig-gc3>
+
+**The screen we were missing — `Installer Toolbox → System Pairing`.** The
+official GC3/GC3e Install & Programming Guide (10023748A, p.37, "Pairing with a
+System": *"This feature allows the panel to pair with approved third-party
+systems"*) documents a **dedicated top-level Installer Toolbox item** — distinct
+from the `System Configuration → Keypads` slot the SP1 uses:
+1. Installer Toolbox → **System Pairing**.
+2. On the *System - Pairing Mode* screen, press the **+** button to start.
+3. The *System Pairing - Enter Key* screen appears and **"the system will listen
+   for the pairing request from the third party system."**
+
+We hoped this was the gate-2 window §2a couldn't open. It was tested via
+`tools/pair.py probe` (unauthenticated `POST /api/v1/pair`, no `X-Api-Key`) with
+the panel in **System Pairing** listen mode (`+` pressed) — **and it was rejected
+at gate 1: `403 "Invalid API key"`.** So the listen window does **not** relax the
+auth middleware; the panel demands a valid api-key even inside System Pairing,
+before the request ever reaches the pairing handler. This **closes the last
+untested hypothesis** from §2a: there is no panel-issued, from-scratch local
+bootstrap on this firmware.
+
+What the *Enter Key* screen actually is, then: **not** a panel-hands-you-a-key
+step. A controller must **arrive already holding a valid api-key** (provisioned
+out-of-band by the backend — Alarm.com / the `stratus` cloud found in the Mgmt
+Cloud app, reached via the `gstun0X.corebrands.com` relays), and System Pairing
+only *authorizes the association* of that already-credentialed controller. The
+api-key originates in the cloud, not the panel — which is why every local
+bootstrap attempt is chicken-and-egg by design.
+
+Corollary — **keypad pairing is not a workaround.** The SP1/SP2 flow enrolls a
+*secondary display* (equipment codes `1060`/`1061`) over Wi-Fi, on a separate
+keypad protocol — not the `/api/v1` automation REST API `pygc3` speaks. Pairing
+as a keypad would need a from-scratch client, yields a UI-mirror rather than
+structured zone/partition/event state, and does not mint an automation api-key.
+Wrong door, lower ceiling. The api-key is per-controller and cloud-issued, **not**
+a value shared across systems — do not expect a universal/hardcoded key.
+
+Source (System Pairing menu path, default installer code `1561`):
+<https://2gig.com/wp-content/uploads/10023748a_x3-installandprogrammingguide.pdf>
+(p.37). Bootstrap is now **ruled out, not parked** — MITM (§2b) is the only local
+route to a real automation key; §2c stands, we already hold working creds.
 
 **What this means practically:** credential *bootstrap* without MITM is not
 achievable here today. But it doesn't matter much — see §2c: we already hold
