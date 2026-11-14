@@ -54,6 +54,16 @@ def _zones(raw: list[dict]) -> list[Zone]:
             False,
             AlarmControlPanelState.TRIGGERED,
         ),
+        (
+            {"armState": "notready", "isArmedStay": False},
+            False,
+            AlarmControlPanelState.DISARMED,
+        ),
+        (
+            {"armState": "inactive", "isArmedStay": False},
+            False,
+            AlarmControlPanelState.DISARMED,
+        ),
     ],
 )
 async def test_map_alarm_state(
@@ -61,6 +71,30 @@ async def test_map_alarm_state(
 ) -> None:
     """The panel's two fields plus the local night flag cover every HA state."""
     assert map_alarm_state(_status(status), _zones(ZONES), night) == expected
+
+
+@pytest.mark.parametrize(
+    ("arm_state", "was_armed", "expected"),
+    [
+        # The entry countdown: an armState we do not know, after armed.
+        ("entrydelay", True, AlarmControlPanelState.PENDING),
+        ("somethingnew", True, AlarmControlPanelState.PENDING),
+        # Names that say what they are need no history.
+        ("entrydelay", False, AlarmControlPanelState.PENDING),
+        ("pending", False, AlarmControlPanelState.PENDING),
+        # Unknown and never armed: nothing to count down from.
+        ("somethingnew", False, AlarmControlPanelState.DISARMED),
+        # A recognised disarmed value wins even straight after armed.
+        ("ready", True, AlarmControlPanelState.DISARMED),
+        ("notready", True, AlarmControlPanelState.DISARMED),
+    ],
+)
+async def test_unknown_state_after_armed_is_pending(
+    arm_state: str, was_armed: bool, expected: AlarmControlPanelState
+) -> None:
+    """The entry delay must not read as DISARMED (it used to)."""
+    status = _status({"armState": arm_state, "isArmedStay": False})
+    assert map_alarm_state(status, _zones(ZONES), False, was_armed) == expected
 
 
 async def test_zone_in_alarm_beats_arm_state() -> None:
@@ -162,3 +196,101 @@ async def _advance(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
     freezer.tick(timedelta(seconds=5))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
+
+
+async def test_entry_delay_reads_as_pending(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """armed -> unknown countdown -> ready walks armed_away, pending, disarmed."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+
+    set_status(mock_client, STATUS_ARMED_AWAY)
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.ARMED_AWAY
+
+    set_status(mock_client, {"armState": "countdown", "isArmedStay": False})
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.PENDING
+    # Still pending on the next poll of the same countdown.
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.PENDING
+
+    set_status(mock_client, STATUS_READY)
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.DISARMED
+
+    # Once disarmed, the same unknown value is no longer an entry delay.
+    set_status(mock_client, {"armState": "countdown", "isArmedStay": False})
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.DISARMED
+
+
+async def test_exit_countdown_is_not_pending(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Only a fully armed panel enters an entry delay; arming does not count."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+
+    set_status(mock_client, STATUS_ARMING)
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.ARMING
+
+    set_status(mock_client, {"armState": "countdown", "isArmedStay": True})
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.DISARMED
+
+
+async def test_night_flag_survives_entry_delay(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """An entry delay is not a disarm, so it keeps the night label."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+
+    coordinator.note_arm(night=True)
+    set_status(mock_client, STATUS_ARMED_STAY)
+    await _advance(hass, freezer)
+    set_status(mock_client, {"armState": "countdown", "isArmedStay": True})
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.PENDING
+
+    set_status(mock_client, STATUS_ARMED_STAY)
+    await _advance(hass, freezer)
+    assert coordinator.alarm_state is AlarmControlPanelState.ARMED_NIGHT
+
+
+async def test_unknown_arm_state_is_logged_once(
+    hass: HomeAssistant,
+    mock_client: AsyncMock,
+    config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The raw value is logged so the real entry-delay string can be captured."""
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    set_status(mock_client, STATUS_ARMED_AWAY)
+    await _advance(hass, freezer)
+    set_status(mock_client, {"armState": "countdown", "isArmedStay": False})
+    await _advance(hass, freezer)
+    await _advance(hass, freezer)
+    assert caplog.text.count("unrecognised armState 'countdown'") == 1

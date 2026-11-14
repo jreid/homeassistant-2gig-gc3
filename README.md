@@ -165,6 +165,13 @@ is disabled.
   read-back. The integration remembers that *it* issued a night arm. Restart
   Home Assistant while armed-night and it falls back to `armed_home`. Any
   disarm, from any source, clears the flag.
+- **The entry delay is inferred too.** The panel's `armState` during the
+  entry countdown has not been captured yet. Any value the integration does
+  not recognise, polled straight after the panel was fully `armed`, is
+  reported as `pending`. The exit countdown is `arming`, so the two stay
+  apart. The first unknown value is logged once at WARNING with the raw
+  status, and the panel entity carries it as the `panel_arm_state` attribute.
+  Before 0.3.1 the entry countdown read as `disarmed`.
 - **Polling, not push.** The panel's SSE endpoint (`/api/v1/events`) is a stub on
   this firmware. Measured 2026-08-02 with `tools/sse_probe.py`: it accepts any
   number of concurrent subscribers, does not interfere with the REST API, sends

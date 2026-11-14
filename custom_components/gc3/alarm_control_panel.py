@@ -64,6 +64,14 @@ class GC3AlarmPanel(GC3Entity, AlarmControlPanelEntity):
     def alarm_state(self) -> AlarmControlPanelState | None:
         return self.coordinator.alarm_state
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        # The raw armState, so states the mapping does not know (entry delay)
+        # show up in history.
+        if self.coordinator.data is None:
+            return None
+        return {"panel_arm_state": self.coordinator.data.status.arm_state}
+
     def _arm_options(self, entry_delay_option: str) -> dict[str, bool]:
         """Panel flags for an arm command, with entry delay per arm mode.
 
