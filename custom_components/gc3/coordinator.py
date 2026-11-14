@@ -46,14 +46,33 @@ class GC3Data:
         self.by_id = {z.id: z for z in self.zones}
 
 
+# armState strings that mean the panel is disarmed. A door left open while
+# disarmed is still a disarmed panel, so anything containing these is disarmed.
+_DISARMED_MARKERS = ("ready", "inactive", "disarm")
+
+
+def is_disarmed_state(arm_state: str) -> bool:
+    """True for the panel's disarmed armState values (ready/inactive/...)."""
+    return any(marker in arm_state for marker in _DISARMED_MARKERS)
+
+
 def map_alarm_state(
-    status: PanelStatus, zones: list[Zone], armed_night: bool
+    status: PanelStatus,
+    zones: list[Zone],
+    armed_night: bool,
+    was_armed: bool = False,
 ) -> AlarmControlPanelState:
     """Derive the HA alarm state.
 
     Mirrors the bridge's mapping. `night` is not observable from the panel, so it
     is remembered locally (see coordinator) and only distinguishes armed_night
     from armed_home while the panel reports armed+stay.
+
+    The panel's entry-delay countdown reports an armState we have not captured.
+    It used to fall through to DISARMED, which showed a counting-down panel as
+    disarmed (2026-11-13: garage man door opened while armed away -> HA said
+    "disarmed", 45s later the siren sounded). An unrecognised armState right
+    after the panel was armed is now PENDING; the coordinator logs the raw value.
     """
     if any(z.status.in_alarm for z in zones):
         return AlarmControlPanelState.TRIGGERED
@@ -70,6 +89,10 @@ def map_alarm_state(
         return AlarmControlPanelState.ARMING
     if "alarm" in state:
         return AlarmControlPanelState.TRIGGERED
+    if is_disarmed_state(state):
+        return AlarmControlPanelState.DISARMED
+    if was_armed or "entry" in state or "pending" in state:
+        return AlarmControlPanelState.PENDING
     return AlarmControlPanelState.DISARMED
 
 
@@ -94,6 +117,11 @@ class GC3Coordinator(DataUpdateCoordinator[GC3Data]):
         )
         self.client = client
         self._armed_night = False
+        # Whether the panel was last seen armed. An unknown armState after an
+        # armed one is the entry delay (see map_alarm_state). Cleared only by a
+        # recognised disarmed state, so it survives the countdown itself.
+        self._was_armed = False
+        self._unknown_states_logged: set[str] = set()
         self._supervision_misses: dict[str, int] = {}
         self._supervision_reported: set[str] = set()
 
@@ -105,10 +133,26 @@ class GC3Coordinator(DataUpdateCoordinator[GC3Data]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except (GC3ConnectionError, GC3ResponseError) as err:
             raise UpdateFailed(str(err)) from err
-        # Drop the night flag whenever the panel is no longer armed/arming, so a
-        # disarm from any source (keypad, automation) clears it.
-        if status.arm_state not in ("armed", "arming"):
+        arm_state = status.arm_state
+        # Only a fully armed panel can enter an entry delay. The exit countdown
+        # reports "arming" (measured) and maps to ARMING on its own; counting it
+        # here would let an unknown exit-side value read as PENDING.
+        if arm_state == "armed":
+            self._was_armed = True
+        elif is_disarmed_state(arm_state):
+            # A disarm from any source (keypad, automation) clears the night
+            # flag. An entry delay or alarm does not: the panel is still armed.
+            self._was_armed = False
             self._armed_night = False
+        elif "alarm" not in arm_state and arm_state not in self._unknown_states_logged:
+            self._unknown_states_logged.add(arm_state)
+            _LOGGER.warning(
+                "GC3 reported unrecognised armState %r (raw status %s); treating it"
+                " as %s",
+                arm_state,
+                status.raw,
+                "pending" if self._was_armed else "disarmed",
+            )
         self._update_supervision_issues(zones)
         return GC3Data(status=status, zones=zones)
 
@@ -121,7 +165,9 @@ class GC3Coordinator(DataUpdateCoordinator[GC3Data]):
         """Current HA alarm state, or None before the first successful poll."""
         if self.data is None:
             return None
-        return map_alarm_state(self.data.status, self.data.zones, self._armed_night)
+        return map_alarm_state(
+            self.data.status, self.data.zones, self._armed_night, self._was_armed
+        )
 
     def _update_supervision_issues(self, zones: list[Zone]) -> None:
         """Raise/clear a repair issue for zones the panel has stopped hearing from."""

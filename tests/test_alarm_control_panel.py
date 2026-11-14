@@ -72,6 +72,8 @@ async def test_entity_shape(
     )
     # A stored PIN means HA should not prompt for a code.
     assert state.attributes["code_format"] is None
+    # The raw armState rides along so unmapped values show up in history.
+    assert state.attributes["panel_arm_state"] == "ready"
 
 
 @pytest.mark.parametrize(
